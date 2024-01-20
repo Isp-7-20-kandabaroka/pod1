@@ -56,7 +56,7 @@ async def send_welcome(message: types.Message):
         InlineKeyboardButton('🎥Все фильмы из ТикТока🎥', callback_data='check_channels')
     )
 
-    photo_path = 'images/tiktok.jpg'  # Укажите здесь путь к файлу на вашем сервере
+    photo_path = 'tiktok.jpg'  # Укажите здесь путь к файлу на вашем сервере
     photo = InputFile(path_or_bytesio=photo_path)
 
     await bot.send_photo(

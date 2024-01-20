@@ -7,7 +7,7 @@ from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
 
-TOKEN = "6882073553:AAHRPI4Ii5El8--oXskqD6XbQJ0IwPNscPM"
+TOKEN = "6855767476:AAGB9oVSxHlFe0-2uli8ITEDF-xHHn1Fekg"
 bot = Bot(token=TOKEN)
 storage = MemoryStorage()  # creating a MemoryStorage for FSM
 dp = Dispatcher(bot, storage=storage)  # Now assigning the storage to Dispatcher
@@ -18,14 +18,14 @@ CHANNELS = {
     '-1001735601596': {
         'url': 'https://t.me/mirchinivizov',
         'clicks': 0,
-        'order': 2  # You need to add this line, with the appropriate order number for each channel
-    }
+        'order': 2,
+        'bot_members': 0  # Изначально количество подписчиков от бота равно 0
+    },
+    # Другие каналы
 }
 successful_checks = 0
 
 next_channel_order = 2
-
-
 
 def make_subscription_keyboard():
     keyboard = InlineKeyboardMarkup(row_width=1)
@@ -56,7 +56,7 @@ async def send_welcome(message: types.Message):
         InlineKeyboardButton('🎥Все фильмы из ТикТока🎥', callback_data='check_channels')
     )
 
-    photo_path = 'tiktok.jpg'  # Укажите здесь путь к файлу на вашем сервере
+    photo_path = 'images/tiktok.jpg'  # Укажите здесь путь к файлу на вашем сервере
     photo = InputFile(path_or_bytesio=photo_path)
 
     await bot.send_photo(
@@ -71,8 +71,7 @@ async def prompt_subscriptions(callback_query: types.CallbackQuery):
     # Сообщаем пользователю о необходимости подписки
     await callback_query.message.answer("📝 Для использования бота, вы должны быть подписаны на наши каналы:", reply_markup=make_subscription_keyboard())
 
-    # Пусть это будет глобальная переменная для подсчета успешных проверок
-    successful_checks = 0
+
 
 @dp.callback_query_handler(lambda c: c.data == 'check_subs')
 async def process_check_subscription(callback_query: types.CallbackQuery):
@@ -91,7 +90,7 @@ async def process_check_subscription(callback_query: types.CallbackQuery):
 
     if user_subscribed:
         successful_checks += channels_count  # Увеличиваем счетчик на количество каналов
-        await callback_query.message.answer("Доступ открыт!\nВсе фильмы из ТикТока⤵️: https://t.me/kinoAgent_007")
+        await callback_query.message.answer("Доступ открыт!\nВсе фильмы из ТикТока⤵️: https://t.me/KinoAgent_007Insta")
 
     else:
         # Эта часть также отправит пользователю кнопку для подписки, если он не подписан на все каналы
@@ -108,6 +107,34 @@ async def process_check_subscription(callback_query: types.CallbackQuery):
 class AdditionProcess(StatesGroup):
     waiting_for_channel_id = State()
     waiting_for_channel_url = State()
+
+
+@dp.callback_query_handler(lambda c: c.data == 'check_subs')
+async def process_check_subscription(callback_query: types.CallbackQuery):
+    global successful_checks  # Используй глобальную переменную внутри функции
+
+    # Проверяем статус подписки пользователя на все каналы
+    user_subscribed = True
+    for channel_id in CHANNELS:
+        chat_member = await bot.get_chat_member(channel_id, callback_query.from_user.id)
+        if chat_member.status not in ['member', 'administrator', 'creator']:
+            user_subscribed = False
+            break
+
+    if user_subscribed:
+
+        CHANNELS['bot_members'] += 1  # Увеличиваем счетчик подписчиков от бота на 1
+        channels_count = len(CHANNELS)  # Считаем количество каналов
+        successful_checks += 1  # Увеличиваем счетчик на 1
+
+
+        await callback_query.message.answer(f"Поздравляем! Вы подписаны на все {channels_count} каналов.")
+    else:
+        await callback_query.message.answer("Пожалуйста, подпишитесь на все каналы перед подтверждением.")
+
+    # Завершаем обработку обратного вызова
+    await bot.answer_callback_query(callback_query.id)
+
 
 
 # Обработчик для команды начала добавления админом нового канала.
@@ -136,7 +163,8 @@ async def add_channel_url(message: types.Message, state: FSMContext):
     CHANNELS[data['channel_id']] = {
         'url': data['channel_url'],
         'clicks': 0,
-        'order': next_channel_order
+        'order': next_channel_order,
+        'bot_members': 0  # Изначально количество подписчиков от бота равно 0
     }
     await message.answer(f"Канал успешно добавлен под номером {next_channel_order}!")
     await state.finish()
@@ -156,6 +184,8 @@ async def delete_channel_start(message: types.Message):
     await message.answer("Введите ID канала, чтобы удалить его:")
     await DeletionProcess.waiting_for_channel_id_to_delete.set()
 # Обработчик команды начала удаления канала админом
+
+
 @dp.message_handler(state=DeletionProcess.waiting_for_channel_id_to_delete)
 async def del_channel_id(message: types.Message, state: FSMContext):
     global CHANNELS, next_channel_order  # Добавляем next_channel_order в глобальный контекст
@@ -181,10 +211,19 @@ async def del_channel_id(message: types.Message, state: FSMContext):
 
     await state.finish()
 
-
 @dp.message_handler(commands=['stat'])
 async def show_stats(message: types.Message):
-    stats_message = "Успешных подписок = " + str(successful_checks)
+    stats_message = "Статистика подписок:\n\n"
+    for channel_id, details in CHANNELS.items():
+        # Получаем информацию о количестве подписчиков для каждого канала
+        chat_member_count = await bot.get_chat_members_count(channel_id)
+        bot_member_count = details['bot_members']  # Количество подписчиков от бота из словаря
+
+        channel_name = details.get('name', 'Канал неизвестен')
+
+        # Добавляем информацию о канале в сообщение со статистикой
+        stats_message += f"{channel_name}: {chat_member_count} подписчиков, от бота: {successful_checks} подписчиков\n"
+
     await message.answer(stats_message)
 
 

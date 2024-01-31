@@ -1,25 +1,22 @@
+
 from aiogram import Bot, Dispatcher, executor, types
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from aiogram.types import InputFile
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
-
 TOKEN = "6855767476:AAGB9oVSxHlFe0-2uli8ITEDF-xHHn1Fekg"
 bot = Bot(token=TOKEN)
-storage = MemoryStorage()  # creating a MemoryStorage for FSM
-dp = Dispatcher(bot, storage=storage)  # Now assigning the storage to Dispatcher
+storage = MemoryStorage()  # создаем MemoryStorage для FSM
+dp = Dispatcher(bot, storage=storage)  # назначаем хранилище для диспетчера
 
-
-ADMIN_IDS = [448076215, 5100515110, 6165219675, 713476634]
+ADMIN_IDS = [448076215, 6165219675, 713476634]
 CHANNELS = {
     '-1001735601596': {
         'url': 'https://t.me/mirchinivizov',
-        'clicks': 0,
         'order': 2,
-        'bot_members': 0  # Изначально количество подписчиков от бота равно 0
+        'bot_members': 0
     },
     # Другие каналы
 }
@@ -33,7 +30,7 @@ def make_subscription_keyboard():
     subscribe_bot_button = InlineKeyboardButton('Подписаться на канал 1 📝', url='https://t.me/OneGoroskope_bot')
     keyboard.add(subscribe_bot_button)
 
-    # Sort channels by their order before adding them to the keyboard
+    # Сортируем каналы по их порядку перед добавлением их в клавиатуру
     sorted_channels = sorted(CHANNELS.items(), key=lambda item: item[1]['order'])
     for channel_id, details in sorted_channels:
         button = InlineKeyboardButton(f'Подписаться на канал {details["order"]} 📝', url=details['url'],
@@ -45,8 +42,6 @@ def make_subscription_keyboard():
 
     return keyboard
 
-
-
 @dp.message_handler(commands=['start'])
 async def send_welcome(message: types.Message):
     username = message.from_user.first_name
@@ -56,7 +51,7 @@ async def send_welcome(message: types.Message):
         InlineKeyboardButton('🎥Все фильмы из ТикТока🎥', callback_data='check_channels')
     )
 
-    photo_path = 'tiktok.jpg'  # Укажите здесь путь к файлу на вашем сервере
+    photo_path = 'tiktok.jpg'
     photo = InputFile(path_or_bytesio=photo_path)
 
     await bot.send_photo(
@@ -68,76 +63,38 @@ async def send_welcome(message: types.Message):
 
 @dp.callback_query_handler(lambda c: c.data == 'check_channels')
 async def prompt_subscriptions(callback_query: types.CallbackQuery):
-    # Сообщаем пользователю о необходимости подписки
-    await callback_query.message.answer("📝 Для использования бота, вы должны быть подписаны на наши каналы:", reply_markup=make_subscription_keyboard())
-
-
+    await callback_query.message.answer("📝 Для использования бота, вы должны быть подписаны на наши каналы:",
+                                        reply_markup=make_subscription_keyboard())
 
 @dp.callback_query_handler(lambda c: c.data == 'check_subs')
 async def process_check_subscription(callback_query: types.CallbackQuery):
-    global successful_checks  # Используем глобальную переменную внутри функции
+    global successful_checks
 
-    # Считаем количество каналов
     channels_count = len(CHANNELS)
 
-    # Функция для проверки подписки пользователя
     user_subscribed = True
     for channel_id in CHANNELS:
         chat_member = await bot.get_chat_member(channel_id, callback_query.from_user.id)
         if chat_member.status not in ['member', 'administrator', 'creator']:
             user_subscribed = False
             break
-
     if user_subscribed:
-        successful_checks += channels_count  # Увеличиваем счетчик на количество каналов
+        if successful_checks < channels_count:
+            successful_checks += 1
         await callback_query.message.answer("Доступ открыт!\nВсе фильмы из ТикТока⤵️: https://t.me/KinoAgent_007Insta")
-
     else:
-        # Эта часть также отправит пользователю кнопку для подписки, если он не подписан на все каналы
         subscription_keyboard = make_subscription_keyboard()
         check_button = InlineKeyboardButton('❤ Я подписался(ась)', callback_data='check_subs')
         subscription_keyboard.add(check_button)
-        await callback_query.message.answer("Пожалуйста, подпишитесь на все каналы перед тем как подтверждать.", reply_markup=subscription_keyboard)
+        await callback_query.message.answer("Пожалуйста, подпишитесь на все каналы перед тем как подтверждать.",
+                                            reply_markup=subscription_keyboard)
 
-    # Завершаем обработку обратного вызова
     await bot.answer_callback_query(callback_query.id)
 
-# Остальная часть кода остаётся без изменений
-# Добавляем состояния для диалога
 class AdditionProcess(StatesGroup):
     waiting_for_channel_id = State()
     waiting_for_channel_url = State()
 
-
-@dp.callback_query_handler(lambda c: c.data == 'check_subs')
-async def process_check_subscription(callback_query: types.CallbackQuery):
-    global successful_checks  # Используй глобальную переменную внутри функции
-
-    # Проверяем статус подписки пользователя на все каналы
-    user_subscribed = True
-    for channel_id in CHANNELS:
-        chat_member = await bot.get_chat_member(channel_id, callback_query.from_user.id)
-        if chat_member.status not in ['member', 'administrator', 'creator']:
-            user_subscribed = False
-            break
-
-    if user_subscribed:
-
-        CHANNELS['bot_members'] += 1  # Увеличиваем счетчик подписчиков от бота на 1
-        channels_count = len(CHANNELS)  # Считаем количество каналов
-        successful_checks += 1  # Увеличиваем счетчик на 1
-
-
-        await callback_query.message.answer(f"Поздравляем! Вы подписаны на все {channels_count} каналов.")
-    else:
-        await callback_query.message.answer("Пожалуйста, подпишитесь на все каналы перед подтверждением.")
-
-    # Завершаем обработку обратного вызова
-    await bot.answer_callback_query(callback_query.id)
-
-
-
-# Обработчик для команды начала добавления админом нового канала.
 @dp.message_handler(commands=['addchannel'], state='*')
 async def add_channel_start(message: types.Message):
     if message.from_user.id not in ADMIN_IDS:
@@ -155,21 +112,16 @@ async def add_channel_id(message: types.Message, state: FSMContext):
 @dp.message_handler(state=AdditionProcess.waiting_for_channel_url)
 async def add_channel_url(message: types.Message, state: FSMContext):
     global next_channel_order
-    # Увеличивать next_channel_order нужно только после добавления данных,
-    # чтобы исключить повторение order.
     async with state.proxy() as data:
         data['channel_url'] = message.text
     next_channel_order += 1
     CHANNELS[data['channel_id']] = {
         'url': data['channel_url'],
-        'clicks': 0,
         'order': next_channel_order,
-        'bot_members': 0  # Изначально количество подписчиков от бота равно 0
+        'bot_members': 0
     }
     await message.answer(f"Канал успешно добавлен под номером {next_channel_order}!")
     await state.finish()
-
-
 
 class DeletionProcess(StatesGroup):
     waiting_for_channel_id_to_delete = State()
@@ -228,6 +180,20 @@ async def show_stats(message: types.Message):
 
 
 
-dp.middleware.setup(LoggingMiddleware())
+async def on_startup(dp):
+    # Вывести информацию об успешном запуске в консоль
+    print("Бот запущен и работает!")
+
+    # Отправить сообщение об успешном запуске бота в чат администратора
+    for admin_id in ADMIN_IDS:
+        try:
+            await bot.send_message(chat_id=admin_id, text='Бот запущен и работает!')
+        except Exception as e:
+            print(f"Ошибка при отправке сообщения в чат {admin_id}: {e}")
+
 if __name__ == '__main__':
-    executor.start_polling(dp, skip_updates=True)
+    # Устанавливаем обработчик запуска бота
+    dp.middleware.setup(LoggingMiddleware())
+
+    # Запускаем бота в бесконечном цикле с передачей on_startup
+    executor.start_polling(dp, on_startup=on_startup, on_shutdown=None)

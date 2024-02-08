@@ -9,20 +9,21 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 TOKEN = "6882073553:AAHRPI4Ii5El8--oXskqD6XbQJ0IwPNscPM"
 bot = Bot(token=TOKEN)
 storage = MemoryStorage()  # создаем MemoryStorage для FSM
-dp = Dispatcher(bot, storage=storage)  # назначаем хранилище для диспетчера
+dp = Dispatcher(bot)  # назначаем хранилище для диспетчера
 
 ADMIN_IDS = [448076215, 6165219675, 713476634]
 CHANNELS = {
     '-1001735601596': {
         'url': 'https://t.me/mirchinivizov',
         'order': 2,
-        'bot_members': 0
+        'bot_members': {}
     },
     # Другие каналы
 }
-successful_checks = 0
 
 next_channel_order = 2
+
+user_subscription_checks = {}
 
 def make_subscription_keyboard():
     keyboard = InlineKeyboardMarkup(row_width=1)
@@ -68,20 +69,24 @@ async def prompt_subscriptions(callback_query: types.CallbackQuery):
 
 @dp.callback_query_handler(lambda c: c.data == 'check_subs')
 async def process_check_subscription(callback_query: types.CallbackQuery):
-    global successful_checks
+    global next_channel_order
 
     channels_count = len(CHANNELS)
 
+    if callback_query.from_user.id not in user_subscription_checks:
+        user_subscription_checks[callback_query.from_user.id] = 0
+
     user_subscribed = True
-    for channel_id in CHANNELS:
+    for channel_id, details in CHANNELS.items():
         chat_member = await bot.get_chat_member(channel_id, callback_query.from_user.id)
         if chat_member.status not in ['member', 'administrator', 'creator']:
             user_subscribed = False
             break
+
     if user_subscribed:
-        if successful_checks < channels_count:
-            successful_checks += 1
-        await callback_query.message.answer("Доступ открыт!\nВсе фильмы из ТикТока⤵️: https://t.me/kinoAgent_007")
+        user_subscription_checks[callback_query.from_user.id] += 1
+        if user_subscription_checks[callback_query.from_user.id] >= channels_count:
+            await callback_query.message.answer("Доступ открыт!\nВсе фильмы из ТикТока⤵️: https://t.me/kinoAgent_007")
     else:
         subscription_keyboard = make_subscription_keyboard()
         check_button = InlineKeyboardButton('❤ Я подписался(ась)', callback_data='check_subs')
@@ -163,20 +168,15 @@ async def del_channel_id(message: types.Message, state: FSMContext):
 
     await state.finish()
 
+
+
+
+
+ # Добавляем информацию о канале в сообщение со статистикой
 @dp.message_handler(commands=['stat'])
 async def show_stats(message: types.Message):
-    stats_message = "Статистика подписок:\n\n"
-    for channel_id, details in CHANNELS.items():
-        # Получаем информацию о количестве подписчиков для каждого канала
-        chat_member_count = await bot.get_chat_members_count(channel_id)
-        bot_member_count = details['bot_members']  # Количество подписчиков от бота из словаря
-
-        channel_name = details.get('name', 'Канал неизвестен')
-
-        # Добавляем информацию о канале в сообщение со статистикой
-        stats_message += f"{channel_name}: {chat_member_count} подписчиков, от бота: {successful_checks} подписчиков\n"
-
-    await message.answer(stats_message)
+    total_subscribers = sum(user_subscription_checks.values())
+    await message.answer(f"Подписчиков от бота: +{total_subscribers}")
 
 
 

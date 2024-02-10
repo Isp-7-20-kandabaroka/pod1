@@ -6,7 +6,7 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
-TOKEN = "6882073553:AAHRPI4Ii5El8--oXskqD6XbQJ0IwPNscPM"
+TOKEN = "6855767476:AAGB9oVSxHlFe0-2uli8ITEDF-xHHn1Fekg"
 bot = Bot(token=TOKEN)
 storage = MemoryStorage()  # создаем MemoryStorage для FSM
 dp = Dispatcher(bot)  # назначаем хранилище для диспетчера
@@ -86,7 +86,7 @@ async def process_check_subscription(callback_query: types.CallbackQuery):
     if user_subscribed:
         user_subscription_checks[callback_query.from_user.id] += 1
         if user_subscription_checks[callback_query.from_user.id] >= channels_count:
-            await callback_query.message.answer("Доступ открыт!\nВсе фильмы из ТикТока⤵️: https://t.me/kinoAgent_007")
+            await callback_query.message.answer("Доступ открыт!\nВсе фильмы из ТикТока⤵️: https://t.me/KinoAgent_007Insta")
     else:
         subscription_keyboard = make_subscription_keyboard()
         check_button = InlineKeyboardButton('❤ Я подписался(ась)', callback_data='check_subs')

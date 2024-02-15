@@ -8,13 +8,14 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
 TOKEN = "6855767476:AAGB9oVSxHlFe0-2uli8ITEDF-xHHn1Fekg"
 bot = Bot(token=TOKEN)
-storage = MemoryStorage()  # создаем MemoryStorage для FSM
-dp = Dispatcher(bot)  # назначаем хранилище для диспетчера
+storage = MemoryStorage()
+dp = Dispatcher(bot, storage=storage)
+
 
 ADMIN_IDS = [448076215, 6165219675, 713476634]
 CHANNELS = {
     '-1001735601596': {
-        'url': 'https://t.me/mirchinivizov',
+        'url': 'https://t.me/pokupka_na_vb',
         'order': 2,
         'bot_members': {}
     },
@@ -71,66 +72,75 @@ async def prompt_subscriptions(callback_query: types.CallbackQuery):
 async def process_check_subscription(callback_query: types.CallbackQuery):
     global next_channel_order
 
-    channels_count = len(CHANNELS)
-
     if callback_query.from_user.id not in user_subscription_checks:
         user_subscription_checks[callback_query.from_user.id] = 0
 
     user_subscribed = True
+    not_subscribed_channels = []  # Список для хранения каналов, на которые пользователь не подписан
+
     for channel_id, details in CHANNELS.items():
         chat_member = await bot.get_chat_member(channel_id, callback_query.from_user.id)
         if chat_member.status not in ['member', 'administrator', 'creator']:
             user_subscribed = False
-            break
+            not_subscribed_channels.append(details['url'])  # Добавляем URL канала в список
+
+    total_channels = len(CHANNELS)  # Общее количество каналов
 
     if user_subscribed:
-        user_subscription_checks[callback_query.from_user.id] += 1
-        if user_subscription_checks[callback_query.from_user.id] >= channels_count:
-            await callback_query.message.answer("Доступ открыт!\nВсе фильмы из ТикТока⤵️: https://t.me/KinoAgent_007Insta")
+        # Если пользователь подписан на все каналы, добавляем общее количество каналов к его счетчику
+        user_subscription_checks[callback_query.from_user.id] += total_channels
+        await callback_query.message.answer("Доступ открыт!\nВсе фильмы из ТикТока⤵️: https://t.me/KinoAgent_007Insta")
     else:
-        subscription_keyboard = make_subscription_keyboard()
-        check_button = InlineKeyboardButton('❤ Я подписался(ась)', callback_data='check_subs')
-        subscription_keyboard.add(check_button)
-        await callback_query.message.answer("Пожалуйста, подпишитесь на все каналы перед тем как подтверждать.",
-                                            reply_markup=subscription_keyboard)
+        # Формируем сообщение с предупреждением и кнопками для подписки
+        warning_message = "Пожалуйста, подпишитесь на следующие каналы перед тем как подтверждать:\n" + "\n".join(not_subscribed_channels)
+        await callback_query.message.answer(warning_message, reply_markup=make_subscription_keyboard())
 
     await bot.answer_callback_query(callback_query.id)
 
 class AdditionProcess(StatesGroup):
-    waiting_for_channel_id = State()
-    waiting_for_channel_url = State()
+    waiting_for_channel_id = State()  # Пользователь вводит ID канала
+    waiting_for_channel_url = State()  # Пользователь вводит URL канала
 
 @dp.message_handler(commands=['addchannel'], state='*')
 async def add_channel_start(message: types.Message):
     if message.from_user.id not in ADMIN_IDS:
         return await message.reply("У вас недостаточно прав для этой команды.")
-    await message.answer("Введите ID канала:")
     await AdditionProcess.waiting_for_channel_id.set()
+    await message.answer("Введите ID канала:")
 
 @dp.message_handler(state=AdditionProcess.waiting_for_channel_id)
 async def add_channel_id(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data['channel_id'] = message.text.strip()
+    await AdditionProcess.next()  # Переход к следующему состоянию
     await message.answer("Введите URL канала:")
-    await AdditionProcess.next()
+
 
 @dp.message_handler(state=AdditionProcess.waiting_for_channel_url)
 async def add_channel_url(message: types.Message, state: FSMContext):
     global next_channel_order
     async with state.proxy() as data:
         data['channel_url'] = message.text
-    next_channel_order += 1
-    CHANNELS[data['channel_id']] = {
+
+    # Находим максимальный order среди существующих каналов и устанавливаем next_channel_order на один больше
+    if CHANNELS:  # Проверяем, не пуст ли словарь
+        max_order = max(channel['order'] for channel in CHANNELS.values())
+        next_channel_order = max_order + 1
+    else:  # Если каналов ещё нет, начинаем с первого
+        next_channel_order = 1
+
+    channel_id = data['channel_id']
+    CHANNELS[channel_id] = {
         'url': data['channel_url'],
         'order': next_channel_order,
-        'bot_members': 0
+        'bot_members': {}
     }
-    await message.answer(f"Канал успешно добавлен под номером {next_channel_order}!")
-    await state.finish()
+    # Теперь не нужно увеличивать next_channel_order, так как он уже был установлен правильно выше
+    await message.answer(f"Канал успешно добавлен под номером {CHANNELS[channel_id]['order']}!")
+    await state.finish()  # Завершение текущего состояния
 
 class DeletionProcess(StatesGroup):
     waiting_for_channel_id_to_delete = State()
-
 
 @dp.message_handler(commands=['delchannel'], state='*')
 async def delete_channel_start(message: types.Message):
@@ -167,29 +177,27 @@ async def del_channel_id(message: types.Message, state: FSMContext):
         await message.answer("Канала с таким ID нет в списке подписок.")
 
     await state.finish()
-
-
-
-
-
  # Добавляем информацию о канале в сообщение со статистикой
 @dp.message_handler(commands=['stat'])
 async def show_stats(message: types.Message):
+    # Проверка, является ли пользователь одним из администраторов
+    if message.from_user.id not in ADMIN_IDS:
+        return await message.reply("У вас недостаточно прав для выполнения этой команды.")
+
     total_subscribers = sum(user_subscription_checks.values())
-    await message.answer(f"Подписчиков от бота: +{total_subscribers}")
+    await message.answer(f"Подписчиков от бота: + {total_subscribers}")
 
 
 
 async def on_startup(dp):
-    # Вывести информацию об успешном запуске в консоль
-    print("Бот запущен и работает!")
+    # Устанавливаем MemoryStorage для хранения состояний FSM
+    dp.middleware.setup(LoggingMiddleware())
 
-    # Отправить сообщение об успешном запуске бота в чат администратора
-    for admin_id in ADMIN_IDS:
-        try:
-            await bot.send_message(chat_id=admin_id, text='Бот запущен и работает!')
-        except Exception as e:
-            print(f"Ошибка при отправке сообщения в чат {admin_id}: {e}")
+
+
+if __name__ == '__main__':
+    # Запускаем бота в бесконечном цикле с передачей on_startup
+    executor.start_polling(dp, on_startup=on_startup, on_shutdown=None)
 
 if __name__ == '__main__':
     # Устанавливаем обработчик запуска бота

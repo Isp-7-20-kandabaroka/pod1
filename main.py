@@ -14,7 +14,7 @@ dp = Dispatcher(bot, storage=storage)
 
 ADMIN_IDS = [448076215, 6165219675, 713476634]
 CHANNELS = {
-    '-1001735601596': {
+    '-1001804008448': {
         'url': 'https://t.me/pokupka_na_vb',
         'order': 2,
         'bot_members': {}
@@ -194,10 +194,6 @@ async def on_startup(dp):
     dp.middleware.setup(LoggingMiddleware())
 
 
-
-if __name__ == '__main__':
-    # Запускаем бота в бесконечном цикле с передачей on_startup
-    executor.start_polling(dp, on_startup=on_startup, on_shutdown=None)
 
 if __name__ == '__main__':
     # Устанавливаем обработчик запуска бота

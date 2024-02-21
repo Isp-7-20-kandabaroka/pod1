@@ -6,7 +6,7 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
-TOKEN = "6882073553:AAHRPI4Ii5El8--oXskqD6XbQJ0IwPNscPM"
+TOKEN = "6855767476:AAGB9oVSxHlFe0-2uli8ITEDF-xHHn1Fekg"
 bot = Bot(token=TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
@@ -89,7 +89,7 @@ async def process_check_subscription(callback_query: types.CallbackQuery):
     if user_subscribed:
         # Если пользователь подписан на все каналы, добавляем общее количество каналов к его счетчику
         user_subscription_checks[callback_query.from_user.id] += total_channels
-        await callback_query.message.answer("Доступ открыт!\nВсе фильмы из ТикТока⤵️: https://t.me/kinoAgent_007")
+        await callback_query.message.answer("Доступ открыт!\nВсе фильмы из ТикТока⤵️: https://t.me/KinoAgent_007Insta")
     else:
         # Формируем сообщение с предупреждением и кнопками для подписки
         warning_message = "Пожалуйста, подпишитесь на следующие каналы перед тем как подтверждать:\n" + "\n".join(not_subscribed_channels)

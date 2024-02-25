@@ -29,7 +29,7 @@ user_subscription_checks = {}
 def make_subscription_keyboard():
     keyboard = InlineKeyboardMarkup(row_width=1)
 
-    subscribe_bot_button = InlineKeyboardButton('Подписаться на канал 1 📝', url='https://t.me/OneGoroskope_bot')
+    subscribe_bot_button = InlineKeyboardButton('Подписаться на бот 1 📝', url='https://t.me/OneGoroskope_bot')
     keyboard.add(subscribe_bot_button)
 
     # Сортируем каналы по их порядку перед добавлением их в клавиатуру

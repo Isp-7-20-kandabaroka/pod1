@@ -89,7 +89,7 @@ async def process_check_subscription(callback_query: types.CallbackQuery):
     if user_subscribed:
         # Если пользователь подписан на все каналы, добавляем общее количество каналов к его счетчику
         user_subscription_checks[callback_query.from_user.id] += total_channels
-        await callback_query.message.answer("Доступ открыт!\nВсе фильмы из ТикТока⤵️: https://t.me/KinoAgent_007Insta")
+        await callback_query.message.answer("Доступ открыт!\nВсе фильмы из ТикТока⤵️: https://t.me/KinoAgent_007")
     else:
         # Формируем сообщение с предупреждением и кнопками для подписки
         warning_message = "Пожалуйста, подпишитесь на следующие каналы перед тем как подтверждать:\n" + "\n".join(not_subscribed_channels)
